@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: texno
+      POSTGRES_PASSWORD: texno_password
+      POSTGRES_DB: texnorobocad
+    ports: ["5432:5432"]
+    volumes: ["texno_pgdata:/var/lib/postgresql/data"]
+volumes:
+  texno_pgdata:

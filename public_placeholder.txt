@@ -1,0 +1,1 @@
+Vite public assets are created in public/ by the setup script below.
