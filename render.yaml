@@ -31,7 +31,7 @@ services:
   - type: web
     name: texnorobocad-web
     runtime: static
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     plan: free
     envVars:
