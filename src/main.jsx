@@ -5,6 +5,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import './style.css'
 
+const API_BASE = (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://texnorobocad-api.onrender.com' : 'http://localhost:4000')).replace(/\\/$/, '')
+
 const sections = [
   ['home','Bosh sahifa','⌂'], ['integrations','Real integratsiya','⚙'], ['cad','3D CAD Studio','◇'], ['robo','RoboLab','◉'],
   ['arduino','Arduino UNO','▦'], ['electro','ElectroLab','ϟ'], ['blocks','Blokli dasturlash','▤'],
@@ -59,7 +61,14 @@ function CADStudio() {
   const save = async () => {
     const data = {name:'Mening robotim', shapes:objects.current.length, color, savedAt:new Date().toISOString()}
     localStorage.setItem('trc-project',JSON.stringify(data));
-    try { const r=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:data.name,kind:'cad',data})}); const result=await r.json(); if(!r.ok)throw new Error(result.error||'API xatosi'); alert('Loyiha server va ma’lumotlar bazasiga saqlandi!') } catch(e) { alert('Loyiha qurilmada saqlandi, serverga ulanish bo‘lmadi: '+e.message) }
+    try {
+      const token=localStorage.getItem('trc-token')
+      if(!token) throw new Error('Bulutga saqlash uchun avval Real integratsiya bo‘limida hisobga kiring.')
+      const r=await fetch(API_BASE+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:data.name,kind:'cad',data})})
+      const result=await r.json()
+      if(!r.ok)throw new Error(result.error||'API xatosi')
+      alert('Loyiha server va ma’lumotlar bazasiga saqlandi!')
+    } catch(e) { alert('Loyiha qurilmada saqlandi. Bulutga saqlash: '+e.message) }
   }
   const exportSTL = () => {
     const exporter = new STLExporter()
@@ -241,15 +250,25 @@ function BlockCoding() {
 function AIDesign() {
   const [prompt,setPrompt]=useState('To‘rt g‘ildirakli kichik robot shassisi, sensor uchun ustun bilan')
   const [kind,setKind]=useState('robot')
-  const [taskId,setTaskId]=useState('')
-  const [task,setTask]=useState(null)
   const [busy,setBusy]=useState(false)
-  const [notice,setNotice]=useState('Meshy AI API kaliti serverga kiritilgach, haqiqiy 3D model yaratiladi.')
-  const generate=async()=>{setBusy(true);setTask(null);setNotice('AI 3D model topshirig‘i yuborilmoqda…');try{const r=await fetch('/api/ai/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt+'; '+({robot:'robot chassis',box:'electronics enclosure',disc:'wheel disc'}[kind])})});const d=await r.json();if(!r.ok)throw new Error(d.error||'AI xizmatida xatolik');setTaskId(d.taskId);setNotice('Topshiriq yaratildi. Model tayyorlanmoqda…');poll(d.taskId)}catch(e){setNotice(e.message)}finally{setBusy(false)}}
-  const poll=async(id)=>{try{const r=await fetch('/api/ai/tasks/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.error||'Holatni tekshirishda xatolik');setTask(d);setNotice(`AI holati: ${d.status||'Noma’lum'} · ${d.progress??0}%`);if(['PENDING','IN_PROGRESS'].includes(d.status))setTimeout(()=>poll(id),5000);else if(d.status==='SUCCEEDED')setNotice('Haqiqiy 3D model tayyor! GLB faylini yuklab olishingiz mumkin.');else setNotice('AI model yaratishda xatolik: '+(d.task_error?.message||d.status))}catch(e){setNotice(e.message)}}
-  return <><div className="page-heading"><div><div className="eyebrow">AI YORDAMIDA LOYIHALASH</div><h1>AI 3D Design</h1><p>Matnli tavsifdan haqiqiy 3D model (GLB) yarating.</p></div><div className="module-symbol">✧</div></div>
-    <div className="ai-layout"><section className="sim-panel"><b>G‘oyangizni tavsiflang</b><textarea className="ai-prompt" value={prompt} onChange={e=>setPrompt(e.target.value)}/><label className="range-label">Model turi</label><div className="ai-types"><button className={kind==='robot'?'selected':''} onClick={()=>setKind('robot')}>🤖 Robot shassisi</button><button className={kind==='box'?'selected':''} onClick={()=>setKind('box')}>▣ Elektronika qutisi</button><button className={kind==='disc'?'selected':''} onClick={()=>setKind('disc')}>◉ G‘ildirak / disk</button></div><button className="primary full" onClick={generate} disabled={busy||!prompt.trim()}>{busy?'Yuborilmoqda…':'✧ Haqiqiy AI 3D model yaratish'}</button><p className="demo-warning">{notice}</p>{taskId&&<small>AI task ID: {taskId}</small>}</section>
-    <section className="sim-panel ai-preview"><div className="sim-head"><div><b>3D model natijasi</b><small>{task?.status||'Kutilmoqda'}</small></div><span className="status-pill">{task?.progress??0}%</span></div><div className={'ai-object '+kind}>{task?.thumbnail_url?<img src={task.thumbnail_url} alt="AI 3D model preview" style={{width:'100%',maxHeight:260,objectFit:'contain'}}/>:kind==='robot'?'🤖':kind==='box'?'▣':'◉'}</div><p className="muted">{prompt}</p>{task?.model_urls?.glb&&<a className="primary full" href={task.model_urls.glb} target="_blank" rel="noreferrer" download>GLB 3D modelni yuklab olish ↗</a>}{task?.status==='SUCCEEDED'&&taskId&&<button className="secondary full" onClick={async()=>{try{const r=await fetch('/api/ai/refine',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({previewTaskId:taskId})});const d=await r.json();if(!r.ok)throw new Error(d.error);setTaskId(d.taskId);poll(d.taskId);setNotice('Model teksturasi yaratilmoqda…')}catch(e){setNotice(e.message)}}}>Tekstura qo‘shish (AI refine)</button>}</section></div></>
+  const [notice,setNotice]=useState('Haqiqiy AI 3D yaratish uchun hisobga kiring va serverda OpenAI kaliti hamda OpenSCAD sozlangan bo‘lishi kerak.')
+  const generate=async()=>{
+    setBusy(true);setNotice('AI 3D model yaratilmoqda…')
+    try {
+      const token=localStorage.getItem('trc-token')
+      if(!token)throw new Error('Avval Real integratsiya sahifasida hisob yarating yoki tizimga kiring.')
+      const r=await fetch(API_BASE+'/api/ai3d/generate',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({prompt,kind})})
+      const d=await r.json()
+      if(!r.ok)throw new Error(d.error||'AI xizmatida xatolik')
+      const bytes=Uint8Array.from(atob(d.stlBase64),c=>c.charCodeAt(0))
+      const url=URL.createObjectURL(new Blob([bytes],{type:'model/stl'}))
+      const a=document.createElement('a');a.href=url;a.download=d.filename||'texnorobocad-model.stl';a.click();URL.revokeObjectURL(url)
+      setNotice('Haqiqiy STL model yaratildi va yuklab olindi ('+d.bytes+' bayt).')
+    } catch(e) { setNotice(e.message) } finally { setBusy(false) }
+  }
+  return <><div className="page-heading"><div><div className="eyebrow">AI YORDAMIDA LOYIHALASH</div><h1>AI 3D Design</h1><p>Matnli tavsifdan OpenSCAD yordamida STL model yarating.</p></div><div className="module-symbol">✧</div></div>
+    <div className="ai-layout"><section className="sim-panel"><b>G‘oyangizni tavsiflang</b><textarea className="ai-prompt" value={prompt} onChange={e=>setPrompt(e.target.value)}/><label className="range-label">Model turi</label><div className="ai-types"><button className={kind==='robot'?'selected':''} onClick={()=>setKind('robot')}>🤖 Robot shassisi</button><button className={kind==='box'?'selected':''} onClick={()=>setKind('box')}>▣ Elektronika qutisi</button><button className={kind==='disc'?'selected':''} onClick={()=>setKind('disc')}>◉ G‘ildirak / disk</button></div><button className="primary full" onClick={generate} disabled={busy||!prompt.trim()}>{busy?'Yaratilmoqda…':'✧ Haqiqiy AI 3D model yaratish'}</button><p className="demo-warning">{notice}</p></section>
+    <section className="sim-panel ai-preview"><div className="sim-head"><div><b>3D model natijasi</b><small>STL fayl</small></div><span className="status-pill">OpenSCAD</span></div><div className={'ai-object '+kind}>{kind==='robot'?'🤖':kind==='box'?'▣':'◉'}</div><p className="muted">{prompt}</p></section></div></>
 }
 
 function Classroom() {
@@ -267,7 +286,7 @@ function Classroom() {
 }
 
 function RealIntegrations() {
-  const API = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+  const API = API_BASE
   const [token,setToken] = useState(localStorage.getItem('trc-token') || '')
   const [email,setEmail] = useState(''), [password,setPassword] = useState(''), [name,setName] = useState('')
   const [prompt,setPrompt] = useState('Arduino robot uchun 4 ta g‘ildirakli ixcham shassi, motor o‘rnatish joylari va batareya bo‘limi bilan')
