@@ -1,0 +1,39 @@
+databases:
+  - name: texnorobocad-db
+    databaseName: texnorobocad
+    user: texnorobocad
+    plan: free
+
+services:
+  - type: web
+    name: texnorobocad-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: texnorobocad-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_ORIGIN
+        value: https://texnorobocad-web.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5
+      - key: ARDUINO_FQBN
+        value: arduino:avr:uno
+
+  - type: web
+    name: texnorobocad-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        value: https://texnorobocad-api.onrender.com
