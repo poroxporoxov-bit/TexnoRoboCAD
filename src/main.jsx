@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import './style.css'
 
-const API_BASE = (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://texnorobocad-api.onrender.com' : 'http://localhost:4000')).replace(/\\/$/, '')
+const API_BASE = (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://texnorobocad-api.onrender.com' : 'http://localhost:4000')).replace(/\/$/, '')
 
 const sections = [
   ['home','Bosh sahifa','⌂'], ['integrations','Real integratsiya','⚙'], ['cad','3D CAD Studio','◇'], ['robo','RoboLab','◉'],
